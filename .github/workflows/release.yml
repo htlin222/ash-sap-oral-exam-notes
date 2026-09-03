@@ -1,0 +1,60 @@
+name: Release EPUB + PDF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "converted/**.md"
+      - "epub-build/**"
+      - "pdf-build/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pandoc, epubcheck, weasyprint deps, CJK fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pandoc \
+            epubcheck \
+            python3-pip \
+            libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 \
+            libffi-dev shared-mime-info \
+            fonts-noto-cjk fonts-noto-cjk-extra
+          pip install --break-system-packages weasyprint
+
+      - name: Build EPUB
+        run: |
+          cd epub-build
+          ./build.sh ../ash-sap-oral-exam-notes.epub
+
+      - name: Validate EPUB
+        run: epubcheck ash-sap-oral-exam-notes.epub
+
+      - name: Build PDF
+        run: |
+          cd pdf-build
+          ./build.sh ../ash-sap-oral-exam-notes.pdf
+
+      - name: Compute version tag
+        id: version
+        run: |
+          echo "tag=v$(date +%Y.%m.%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            ash-sap-oral-exam-notes.epub \
+            ash-sap-oral-exam-notes.pdf \
+            --title "ASH-SAP 口試問答筆記 ${{ steps.version.outputs.tag }}" \
+            --notes "由 converted/*.md 自動建置。內容改寫自 ASH-SAP 9e，僅供個人讀書與考試準備使用。"

@@ -1,0 +1,120 @@
+/* Minimalist black-and-white stylesheet, Kindle-safe (no color, relative units, simple selectors) */
+
+body {
+  font-family: serif;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0 0.5em;
+  color: #000;
+  background: #fff;
+}
+
+h1 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 1.2em 0 0.6em 0;
+  page-break-before: always;
+  border-bottom: 1px solid #000;
+  padding-bottom: 0.2em;
+}
+
+h2 {
+  font-size: 1.15em;
+  font-weight: bold;
+  margin: 1.4em 0 0.5em 0;
+  border-bottom: 1px solid #666;
+  padding-bottom: 0.1em;
+}
+
+h3 {
+  font-size: 1em;
+  font-weight: bold;
+  margin: 1em 0 0.4em 0;
+}
+
+p {
+  margin: 0.4em 0;
+  text-align: justify;
+}
+
+ol {
+  margin: 0.6em 0;
+  padding-left: 1.3em;
+}
+
+ol > li {
+  margin: 0.9em 0;
+  font-weight: bold;
+}
+
+ol > li > p {
+  font-weight: bold;
+}
+
+ul {
+  margin: 0.3em 0;
+  padding-left: 1.2em;
+}
+
+li ul, li ol {
+  margin: 0.2em 0;
+}
+
+li ul > li, li ol > li {
+  font-weight: normal;
+  margin: 0.25em 0;
+}
+
+strong, b {
+  font-weight: bold;
+}
+
+em, i {
+  font-style: italic;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  font-size: 0.85em;
+}
+
+th, td {
+  border: 1px solid #000;
+  padding: 0.3em 0.4em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-weight: bold;
+  border-bottom: 2px solid #000;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #000;
+  margin: 1.5em 0;
+}
+
+blockquote {
+  margin: 0.6em 1em;
+  padding-left: 0.8em;
+  border-left: 2px solid #000;
+  font-style: italic;
+}
+
+code {
+  font-family: monospace;
+}
+
+nav#toc ol {
+  list-style: none;
+  padding-left: 0;
+}
+
+nav#toc li {
+  margin: 0.5em 0;
+  font-weight: normal;
+}

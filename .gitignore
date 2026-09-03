@@ -1,0 +1,22 @@
+# 版權書籍來源 PDF（不進版控）
+/American Society of Hematology Self-Assessment Program_9e_2025.pdf
+/hematology-board-review-blueprint-study-guide-and--annas-archive.pdf
+
+# 產出物（由 CI / build 腳本重新產生，不進版控）
+*.epub
+*.pdf
+*.apkg
+
+# macOS
+.DS_Store
+
+# Claude Code 本機狀態
+.claude/
+
+# Astro / Node
+site/node_modules/
+site/dist/
+site/.astro/
+
+# 由 site/scripts/sync_content.py 從 ../converted/*.md 自動產生，不進版控
+site/src/content/docs/chapters/

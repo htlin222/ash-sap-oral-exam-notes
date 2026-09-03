@@ -1,0 +1,170 @@
+/* 極簡黑白列印樣式，給 pandoc -> HTML -> weasyprint 用 */
+
+@page {
+  size: A5;
+  margin: 18mm 14mm 20mm 14mm;
+  @bottom-center {
+    content: counter(page);
+    font-size: 9pt;
+    color: #000;
+  }
+}
+
+@page :first {
+  @bottom-center { content: ""; }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Noto Serif CJK TC", "Songti TC", serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: #000000;
+  background: #ffffff;
+  margin: 0;
+}
+
+header#title-block-header {
+  break-after: page;
+}
+
+h1.title {
+  font-size: 26pt;
+  text-align: center;
+  margin-top: 35%;
+  border: none;
+}
+
+p.subtitle {
+  text-align: center;
+  font-size: 13pt;
+  color: #333;
+  margin-top: 0.6em;
+}
+
+p.author, p.date {
+  text-align: center;
+  font-size: 11pt;
+  color: #333;
+}
+
+h1 {
+  font-size: 16pt;
+  font-weight: bold;
+  margin: 0 0 0.8em 0;
+  padding-bottom: 0.3em;
+  border-bottom: 1.5pt solid #000;
+  break-before: page;
+}
+
+h2 {
+  font-size: 12.5pt;
+  font-weight: bold;
+  margin: 1.4em 0 0.5em 0;
+  border-bottom: 0.75pt solid #666;
+  padding-bottom: 0.15em;
+  break-after: avoid;
+}
+
+h3 {
+  font-size: 11pt;
+  font-weight: bold;
+  margin: 1em 0 0.4em 0;
+  break-after: avoid;
+}
+
+p {
+  margin: 0.4em 0;
+  text-align: justify;
+  orphans: 2;
+  widows: 2;
+}
+
+ol {
+  margin: 0.6em 0;
+  padding-left: 1.4em;
+}
+
+ol > li {
+  margin: 0.8em 0;
+  font-weight: bold;
+  break-inside: avoid-page;
+}
+
+ol > li > p {
+  font-weight: bold;
+  margin: 0;
+}
+
+ul {
+  margin: 0.3em 0;
+  padding-left: 1.2em;
+}
+
+li ul, li ol {
+  margin: 0.2em 0;
+}
+
+li ul > li, li ol > li {
+  font-weight: normal;
+  margin: 0.25em 0;
+  break-inside: auto;
+}
+
+strong, b { font-weight: bold; }
+em, i { font-style: italic; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.7em 0;
+  font-size: 8.5pt;
+  break-inside: avoid;
+}
+
+th, td {
+  border: 0.75pt solid #000;
+  padding: 0.25em 0.35em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-weight: bold;
+  border-bottom: 1.5pt solid #000;
+}
+
+hr {
+  border: none;
+  border-top: 0.75pt solid #000;
+  margin: 1.2em 0;
+}
+
+nav#TOC {
+  break-after: page;
+}
+
+nav#TOC > h2 {
+  font-size: 16pt;
+  text-align: center;
+  border: none;
+  margin-bottom: 1em;
+}
+
+nav#TOC ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+nav#TOC > ul > li {
+  margin: 0.5em 0;
+  font-weight: bold;
+}
+
+nav#TOC a {
+  color: #000;
+  text-decoration: none;
+}
