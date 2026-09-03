@@ -15,7 +15,8 @@
   --sl-color-gray-7: #f5f5f5;
   --sl-color-black: #ffffff;
 
-  --sl-font: "Songti TC", "PingFang TC", -apple-system, serif;
+  --sl-font: "Noto Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", -apple-system, sans-serif;
+  --sl-font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
 :root[data-theme="dark"] {

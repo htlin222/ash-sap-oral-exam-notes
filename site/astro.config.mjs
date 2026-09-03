@@ -31,6 +31,21 @@ export default defineConfig({
 					tag: 'meta',
 					attrs: { name: 'twitter:card', content: 'summary_large_image' },
 				},
+				{
+					tag: 'link',
+					attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+				},
+				{
+					tag: 'link',
+					attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: true },
+				},
+				{
+					tag: 'link',
+					attrs: {
+						rel: 'stylesheet',
+						href: 'https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap',
+					},
+				},
 			],
 		}),
 	],
