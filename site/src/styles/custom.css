@@ -1,9 +1,9 @@
-/* 極簡黑白主題：把 Starlight 預設的藍紫色系換成純黑白灰階 */
+/* 極簡黑白灰階為主，搭配單一主色（血液科主題：暗紅）當強調色 */
 
 :root {
-  --sl-color-accent-low: #e5e5e5;
-  --sl-color-accent: #000000;
-  --sl-color-accent-high: #000000;
+  --sl-color-accent-low: #f3d9d9;
+  --sl-color-accent: #9a2f2f;
+  --sl-color-accent-high: #6b1f1f;
 
   --sl-color-white: #000000;
   --sl-color-gray-1: #121212;
@@ -20,9 +20,9 @@
 }
 
 :root[data-theme="dark"] {
-  --sl-color-accent-low: #2b2b2b;
-  --sl-color-accent: #ffffff;
-  --sl-color-accent-high: #ffffff;
+  --sl-color-accent-low: #3a1f1f;
+  --sl-color-accent: #e08585;
+  --sl-color-accent-high: #f5b8b8;
 
   --sl-color-white: #ffffff;
   --sl-color-gray-1: #f5f5f5;
