@@ -6,6 +6,9 @@
 *.epub
 *.pdf
 *.apkg
+*.mp4
+/out/
+video-build/out/
 
 # macOS
 .DS_Store
