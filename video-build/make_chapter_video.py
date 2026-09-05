@@ -248,16 +248,42 @@ MAX_ANSWER_POINTSIZE = 40
 # the box edge) and punctuation spacing.
 _CHAR_WIDTH_FACTOR = 0.72
 _LINE_HEIGHT_FACTOR = 1.35
-_SAFETY = 0.72
+_SAFETY = 0.68
+
+
+def _lines_needed(text: str, w: int, pointsize: int) -> int:
+    """How many wrapped visual lines `text` needs at `pointsize` in width `w`.
+
+    Table rows / bullets in our answer text are joined with explicit `\n`
+    (forced breaks) — each one wraps *independently*, so a naive
+    characters-vs-box-area estimate undercounts badly (a table with many
+    short forced-newline rows needs far more lines than the same character
+    count as one flowing paragraph would). Splitting on `\n` first and
+    summing each segment's own wrap count fixes that.
+    """
+    chars_per_line = max(1, int(w / (pointsize * _CHAR_WIDTH_FACTOR)))
+    total = 0
+    for segment in text.split("\n"):
+        segment = segment.strip()
+        total += -(-len(segment) // chars_per_line) if segment else 1  # ceil div
+    return max(total, 1)
 
 
 def estimate_pointsize(text: str, w: int, h: int, min_size: int, max_size: int) -> int:
-    n = len(text)
-    if n == 0:
+    if not text:
         return max_size
-    capacity_per_pt2 = (w / _CHAR_WIDTH_FACTOR) * (h / _LINE_HEIGHT_FACTOR)
-    size = int((capacity_per_pt2 * _SAFETY / n) ** 0.5)
-    return max(min_size, min(max_size, size))
+    usable_h = h * _SAFETY
+    lo, hi = min_size, max_size
+    best = min_size
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        needed_h = _lines_needed(text, w, mid) * mid * _LINE_HEIGHT_FACTOR
+        if needed_h <= usable_h:
+            best = mid
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return best
 
 
 def single_line_pointsize(text: str, w: int, max_size: int, min_size: int = 14) -> int:
