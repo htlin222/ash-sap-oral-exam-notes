@@ -224,12 +224,81 @@ def breadcrumb(chapter_title: str, section: str) -> str:
     return "　›　".join(parts)
 
 
+# caption:'s auto-fit picks the *largest* size that fits each slide's own
+# text — which makes consecutive slides visually inconsistent (a one-line
+# answer renders huge, a table-heavy one renders tiny). We want one fixed
+# size per chapter instead, sized to fit the densest question, so shorter
+# ones just get more whitespace instead of a bigger font.
+#
+# Measuring the "true" required size by actually rendering with ImageMagick
+# (its own auto-fit, or our own binary search on rendered height) costs
+# 5-40+ seconds *per item* once text gets long (a few hundred CJK/mixed
+# characters) — completely impractical multiplied across 49 chapters in CI.
+# So instead we estimate the fit arithmetically from character count and
+# box area (no subprocess calls at all), deliberately erring smaller than
+# necessary — extra whitespace is fine, overflow isn't.
+MIN_QUESTION_POINTSIZE = 24
+MAX_QUESTION_POINTSIZE = 64
+MIN_ANSWER_POINTSIZE = 18
+MAX_ANSWER_POINTSIZE = 40
+
+# Rough CJK/Latin-mixed glyph metrics for caption:'s wrapping: average glyph
+# width and line height as a fraction of pointsize. SAFETY leaves headroom
+# for word-wrap inefficiency (a word/CJK run can't always split exactly at
+# the box edge) and punctuation spacing.
+_CHAR_WIDTH_FACTOR = 0.72
+_LINE_HEIGHT_FACTOR = 1.35
+_SAFETY = 0.72
+
+
+def estimate_pointsize(text: str, w: int, h: int, min_size: int, max_size: int) -> int:
+    n = len(text)
+    if n == 0:
+        return max_size
+    capacity_per_pt2 = (w / _CHAR_WIDTH_FACTOR) * (h / _LINE_HEIGHT_FACTOR)
+    size = int((capacity_per_pt2 * _SAFETY / n) ** 0.5)
+    return max(min_size, min(max_size, size))
+
+
+def single_line_pointsize(text: str, w: int, max_size: int, min_size: int = 14) -> int:
+    """Shrink-to-fit for the (non-wrapping) breadcrumb header line."""
+    n = len(text)
+    if n == 0:
+        return max_size
+    size = int((w * 0.72) / (n * 0.62))
+    return max(min_size, min(max_size, size))
+
+
+def fit_pointsizes(
+    qa_pairs: list[tuple[str, str, str]],
+) -> tuple[int, int]:
+    inner_w = WIDTH - 160
+    inner_w2 = WIDTH - 200
+    question_h = 300
+    answer_h = HEIGHT - 90 - 6 - question_h - 3 - 64
+
+    q_sizes = [
+        estimate_pointsize(q, inner_w, question_h, MIN_QUESTION_POINTSIZE, MAX_QUESTION_POINTSIZE)
+        for _, q, _ in qa_pairs
+    ]
+    a_sizes = [
+        estimate_pointsize(a, inner_w2, answer_h, MIN_ANSWER_POINTSIZE, MAX_ANSWER_POINTSIZE)
+        for _, _, a in qa_pairs if a
+    ]
+
+    q_size = min(q_sizes, default=MAX_QUESTION_POINTSIZE)
+    a_size = min(a_sizes, default=MAX_ANSWER_POINTSIZE)
+    return q_size, a_size
+
+
 def render_slide(
     out_png: Path,
     header: str,
     question: str,
     answer: str,
     footer: str,
+    question_pointsize: int,
+    answer_pointsize: int,
     font_bold: str,
     font_regular: str,
 ) -> None:
@@ -248,9 +317,10 @@ def render_slide(
     question_h = 300
     answer_h = HEIGHT - header_h - divider_h - question_h - footer_divider_h - footer_h
 
+    header_pointsize = single_line_pointsize(header, WIDTH - 120, max_size=32)
     run([
         MAGICK_BIN, "-size", f"{WIDTH}x{header_h}", f"xc:{WHITE}",
-        "-font", font_regular, "-pointsize", "32", "-fill", ACCENT,
+        "-font", font_regular, "-pointsize", str(header_pointsize), "-fill", ACCENT,
         "-gravity", "West", "-annotate", "+60+0", im_escape(header),
         header_png.as_posix(),
     ])
@@ -261,7 +331,7 @@ def render_slide(
     inner_w = WIDTH - 160
     run([
         MAGICK_BIN, "-size", f"{inner_w}x{question_h}", "-background", WHITE,
-        "-font", font_bold, "-fill", BLACK, "-gravity", "Center",
+        "-font", font_bold, "-pointsize", str(question_pointsize), "-fill", BLACK, "-gravity", "Center",
         f"caption:{im_escape(question)}",
         "-gravity", "center", "-background", WHITE, "-extent", f"{WIDTH}x{question_h}",
         question_png.as_posix(),
@@ -270,7 +340,7 @@ def render_slide(
         inner_w2 = WIDTH - 200
         run([
             MAGICK_BIN, "-size", f"{inner_w2}x{answer_h}", "-background", WHITE,
-            "-font", font_regular, "-fill", GRAY, "-gravity", "North",
+            "-font", font_regular, "-pointsize", str(answer_pointsize), "-fill", GRAY, "-gravity", "North",
             f"caption:{im_escape(answer)}",
             "-gravity", "north", "-background", WHITE, "-extent", f"{WIDTH}x{answer_h}",
             answer_png.as_posix(),
@@ -357,22 +427,28 @@ async def build_chapter_video(
         qa_pairs = qa_pairs[:only]
     print(f"章節：{title}（{len(qa_pairs)} 題）")
 
+    question_pointsize, answer_pointsize = fit_pointsizes(qa_pairs)
+    print(f"  統一字級：問題={question_pointsize}pt，答案={answer_pointsize}pt（依本章最密內容估算）")
+
     work_dir.mkdir(parents=True, exist_ok=True)
     if slides_only:
         out_path.mkdir(parents=True, exist_ok=True)
     clip_paths: list[Path] = []
 
-    # Clip 0：章節標題頁
+    # Clip 0：章節標題頁（標題本身量身auto-fit，不受題目字級限制）
     intro_audio = work_dir / "clip-000.mp3"
     intro_png = (out_path if slides_only else work_dir) / "clip-000.png"
     intro_mp4 = work_dir / "clip-000.mp4"
     total = len(qa_pairs)
+    intro_pointsize = estimate_pointsize(title, WIDTH - 160, 300, MIN_QUESTION_POINTSIZE, MAX_QUESTION_POINTSIZE)
     render_slide(
         intro_png,
         header=breadcrumb(title, ""),
         question=title,
         answer="",
         footer=f"共 {total} 題",
+        question_pointsize=intro_pointsize,
+        answer_pointsize=answer_pointsize,
         font_bold=font_bold,
         font_regular=font_regular,
     )
@@ -393,6 +469,8 @@ async def build_chapter_video(
             question=question,
             answer=answer,
             footer=f"Q{i} / {total}",
+            question_pointsize=question_pointsize,
+            answer_pointsize=answer_pointsize,
             font_bold=font_bold,
             font_regular=font_regular,
         )
