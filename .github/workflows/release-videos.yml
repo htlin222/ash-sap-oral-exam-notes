@@ -76,9 +76,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ steps.chapters.outputs.tag }}" \
-            --title "ASH-SAP 章節影片 ${{ steps.chapters.outputs.tag }}" \
-            --notes "由 converted/*.md 自動建置的章節口試問答影片（16:9，zh-TW-YunJheNeural 語音旁白）。各章節影片會陸續以 matrix job 上傳到這個 release。"
+          tag="${{ steps.chapters.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists (same-day rerun) — reusing it."
+          else
+            gh release create "$tag" \
+              --title "ASH-SAP 章節影片 $tag" \
+              --notes "由 converted/*.md 自動建置的章節口試問答影片（16:9，zh-TW-YunJheNeural 語音旁白）。各章節影片會陸續以 matrix job 上傳到這個 release。"
+          fi
 
   build:
     needs: detect
