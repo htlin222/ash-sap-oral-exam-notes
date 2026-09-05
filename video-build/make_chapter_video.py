@@ -155,21 +155,31 @@ def extract_h1_title(md_text: str) -> str:
     return "未命名章節"
 
 
-def parse_chapter(md_path: Path) -> tuple[str, list[tuple[str, str]]]:
+def clean_section_name(s: str) -> str:
+    # 小節標題常是「英文(中文翻譯)」，投影片麵包屑只需要簡短的中文/英文其中一段。
+    s = re.sub(r"\([^)]*\)\s*$", "", s).strip()
+    return s or "".join(s)
+
+
+def parse_chapter(md_path: Path) -> tuple[str, list[tuple[str, str, str]]]:
+    """回傳 (章節標題, [(小節名稱, 問題, 答案), ...])。"""
     text = md_path.read_text(encoding="utf-8")
     title = extract_h1_title(text)
     html = markdown_to_html(text)
     soup = BeautifulSoup(html, "html.parser")
 
-    qa_pairs: list[tuple[str, str]] = []
+    qa_pairs: list[tuple[str, str, str]] = []
+    current_section = ""
     for node in list(soup.contents):
         if not isinstance(node, Tag):
             continue
-        if node.name == "ol":
+        if node.name in ("h2", "h3"):
+            current_section = clean_section_name(node.get_text())
+        elif node.name == "ol":
             for li in node.find_all("li", recursive=False):
                 q, a = li_to_question_answer(li)
                 if q:
-                    qa_pairs.append((q, a))
+                    qa_pairs.append((current_section, q, a))
     return title, qa_pairs
 
 
@@ -207,11 +217,19 @@ def run(cmd: list[str]) -> None:
         raise subprocess.CalledProcessError(result.returncode, cmd)
 
 
+def breadcrumb(chapter_title: str, section: str) -> str:
+    parts = ["ASH-SAP 血液科口試問答筆記", chapter_title]
+    if section:
+        parts.append(section)
+    return "　›　".join(parts)
+
+
 def render_slide(
     out_png: Path,
     header: str,
     question: str,
     answer: str,
+    footer: str,
     font_bold: str,
     font_regular: str,
 ) -> None:
@@ -220,15 +238,19 @@ def render_slide(
     question_png = tmp / f"{out_png.stem}-question.png"
     answer_png = tmp / f"{out_png.stem}-answer.png"
     divider_png = tmp / f"{out_png.stem}-divider.png"
+    footer_divider_png = tmp / f"{out_png.stem}-fdivider.png"
+    footer_png = tmp / f"{out_png.stem}-footer.png"
 
     header_h = 90
-    question_h = 330
     divider_h = 6
-    answer_h = HEIGHT - header_h - question_h - divider_h
+    footer_divider_h = 3
+    footer_h = 64
+    question_h = 300
+    answer_h = HEIGHT - header_h - divider_h - question_h - footer_divider_h - footer_h
 
     run([
         MAGICK_BIN, "-size", f"{WIDTH}x{header_h}", f"xc:{WHITE}",
-        "-font", font_regular, "-pointsize", "34", "-fill", ACCENT,
+        "-font", font_regular, "-pointsize", "32", "-fill", ACCENT,
         "-gravity", "West", "-annotate", "+60+0", im_escape(header),
         header_png.as_posix(),
     ])
@@ -256,13 +278,24 @@ def render_slide(
     else:
         run([MAGICK_BIN, "-size", f"{WIDTH}x{answer_h}", f"xc:{WHITE}", answer_png.as_posix()])
     run([
+        MAGICK_BIN, "-size", f"{WIDTH}x{footer_divider_h}", f"xc:{GRAY}",
+        footer_divider_png.as_posix(),
+    ])
+    run([
+        MAGICK_BIN, "-size", f"{WIDTH}x{footer_h}", f"xc:{WHITE}",
+        "-font", font_regular, "-pointsize", "28", "-fill", ACCENT,
+        "-gravity", "East", "-annotate", "+60+0", im_escape(footer),
+        footer_png.as_posix(),
+    ])
+    run([
         MAGICK_BIN,
         header_png.as_posix(), divider_png.as_posix(),
         question_png.as_posix(), answer_png.as_posix(),
+        footer_divider_png.as_posix(), footer_png.as_posix(),
         "-append",
         out_png.as_posix(),
     ])
-    for p in (header_png, question_png, answer_png, divider_png):
+    for p in (header_png, question_png, answer_png, divider_png, footer_divider_png, footer_png):
         p.unlink(missing_ok=True)
 
 
@@ -309,10 +342,12 @@ async def build_chapter_video(
     rate: str,
     work_dir: Path,
     only: int | None = None,
+    slides_only: bool = False,
 ) -> None:
     check_tool("pandoc")
     check_tool(MAGICK_BIN)
-    check_tool("ffmpeg")
+    if not slides_only:
+        check_tool("ffmpeg")
 
     font_bold = first_existing(FONT_CJK_BOLD_CANDIDATES)
     font_regular = first_existing(FONT_CJK_REGULAR_CANDIDATES)
@@ -323,42 +358,55 @@ async def build_chapter_video(
     print(f"章節：{title}（{len(qa_pairs)} 題）")
 
     work_dir.mkdir(parents=True, exist_ok=True)
+    if slides_only:
+        out_path.mkdir(parents=True, exist_ok=True)
     clip_paths: list[Path] = []
 
     # Clip 0：章節標題頁
     intro_audio = work_dir / "clip-000.mp3"
-    intro_png = work_dir / "clip-000.png"
+    intro_png = (out_path if slides_only else work_dir) / "clip-000.png"
     intro_mp4 = work_dir / "clip-000.mp4"
-    await synth(f"{title}。", voice, rate, intro_audio)
+    total = len(qa_pairs)
     render_slide(
         intro_png,
-        header="ASH-SAP 血液科口試問答筆記",
+        header=breadcrumb(title, ""),
         question=title,
         answer="",
+        footer=f"共 {total} 題",
         font_bold=font_bold,
         font_regular=font_regular,
     )
-    make_clip(intro_png, intro_audio, intro_mp4)
-    clip_paths.append(intro_mp4)
+    if not slides_only:
+        await synth(f"{title}。", voice, rate, intro_audio)
+        make_clip(intro_png, intro_audio, intro_mp4)
+        clip_paths.append(intro_mp4)
 
-    for i, (question, answer) in enumerate(qa_pairs, start=1):
-        print(f"  [{i}/{len(qa_pairs)}] {question[:40]}...")
+    for i, (section, question, answer) in enumerate(qa_pairs, start=1):
+        print(f"  [{i}/{total}] {question[:40]}...")
         audio_path = work_dir / f"clip-{i:03d}.mp3"
-        png_path = work_dir / f"clip-{i:03d}.png"
+        png_path = (out_path if slides_only else work_dir) / f"clip-{i:03d}.png"
         mp4_path = work_dir / f"clip-{i:03d}.mp4"
 
-        narration = f"第 {i} 題。{question}{answer.replace(chr(10), '，')}"
-        await synth(narration, voice, rate, audio_path)
         render_slide(
             png_path,
-            header=f"{title}　·　Q{i}",
+            header=breadcrumb(title, section),
             question=question,
             answer=answer,
+            footer=f"Q{i} / {total}",
             font_bold=font_bold,
             font_regular=font_regular,
         )
+        if slides_only:
+            continue
+
+        narration = f"第 {i} 題。{question}{answer.replace(chr(10), '，')}"
+        await synth(narration, voice, rate, audio_path)
         make_clip(png_path, audio_path, mp4_path)
         clip_paths.append(mp4_path)
+
+    if slides_only:
+        print(f"完成（只出投影片）：{out_path}")
+        return
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     concat_clips(clip_paths, out_path)
@@ -368,19 +416,27 @@ async def build_chapter_video(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("markdown", type=Path, help="來源章節 markdown 檔")
-    parser.add_argument("-o", "--output", type=Path, required=True, help="輸出 mp4 路徑")
+    parser.add_argument(
+        "-o", "--output", type=Path, required=True,
+        help="輸出 mp4 路徑（--slides-only 時改為輸出投影片 PNG 的資料夾）",
+    )
     parser.add_argument("--voice", default="zh-TW-YunJheNeural", help="edge-tts 語音")
     parser.add_argument("--rate", default="+0%", help="edge-tts 語速調整")
     parser.add_argument("--work-dir", type=Path, default=None, help="暫存資料夾（預設用系統暫存目錄）")
     parser.add_argument("--only", type=int, default=None, help="只處理前 N 題（測試用）")
     parser.add_argument("--keep-work-dir", action="store_true", help="保留暫存 clip 檔案（除錯用）")
+    parser.add_argument(
+        "--slides-only", action="store_true",
+        help="只產生投影片 PNG（不用 TTS / ffmpeg），本機快速確認排版用",
+    )
     args = parser.parse_args()
 
     work_dir = args.work_dir or Path(tempfile.mkdtemp(prefix="ash-sap-video-"))
     try:
         asyncio.run(
             build_chapter_video(
-                args.markdown, args.output, args.voice, args.rate, work_dir, args.only
+                args.markdown, args.output, args.voice, args.rate, work_dir,
+                args.only, args.slides_only,
             )
         )
     finally:

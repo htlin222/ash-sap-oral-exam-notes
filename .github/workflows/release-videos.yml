@@ -8,11 +8,14 @@ name: Release chapter videos
 # 用 matrix 讓每個章節各自跑一個 runner，平行處理。
 
 on:
+  # 注意：push 只在 converted/**.md 變動時自動跑，且只重建有改的章節 ——
+  # 影片渲染比 EPUB/PDF/網站貴很多（逐題 TTS + ffmpeg），刻意不讓
+  # video-build/** 的一般腳本調整自動觸發全部 49 章重建。改完管線後要
+  # 全量重建，用下面的 workflow_dispatch（chapter_ids 留空 = 全部）手動觸發。
   push:
     branches: [main]
     paths:
       - "converted/**.md"
-      - "video-build/**"
   workflow_dispatch:
     inputs:
       chapter_ids:
@@ -55,13 +58,8 @@ jobs:
             else
               range="$before..HEAD"
             fi
-            # video-build/** 改了（管線本身），視為全量重建；否則只重建有改的章節。
-            if git diff --name-only "$range" -- 'video-build/**' | grep -q .; then
-              ids=$(all_ids)
-            else
-              ids=$(git diff --name-only --diff-filter=AM "$range" -- 'converted/*.md' \
-                | xargs -r -n1 basename | sed 's/\.md$//' | tr '\n' ' ')
-            fi
+            ids=$(git diff --name-only --diff-filter=AM "$range" -- 'converted/*.md' \
+              | xargs -r -n1 basename | sed 's/\.md$//' | tr '\n' ' ')
           fi
 
           ids_json=$(printf '%s\n' $ids | grep . | jq -R . | jq -cs .) || ids_json="[]"
