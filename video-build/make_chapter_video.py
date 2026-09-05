@@ -188,7 +188,7 @@ def parse_chapter(md_path: Path) -> tuple[str, list[tuple[str, str, str]]]:
 # ---------------------------------------------------------------------------
 
 
-async def synth(text: str, voice: str, rate: str, out_path: Path, attempts: int = 3) -> None:
+async def synth(text: str, voice: str, rate: str, out_path: Path, attempts: int = 6) -> None:
     last_err: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
@@ -201,7 +201,11 @@ async def synth(text: str, voice: str, rate: str, out_path: Path, attempts: int 
             last_err = e
             print(f"  TTS attempt {attempt}/{attempts} failed: {e}", file=sys.stderr)
             if attempt < attempts:
-                await asyncio.sleep(attempt * 3)
+                # Longer backoff than a plain transient blip needs: this error
+                # mode is caused by many concurrent CI jobs hitting Edge TTS
+                # at once (see max-parallel note in the workflow), so give the
+                # endpoint real time to stop throttling this IP range.
+                await asyncio.sleep(min(attempt * 8, 45))
     raise RuntimeError(f"TTS 失敗（{attempts} 次）: {last_err}")
 
 

@@ -90,7 +90,12 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      max-parallel: 15
+      # Edge TTS starts rejecting requests ("No audio was received") once too
+      # many concurrent chapters (each making dozens of calls) hit it at once
+      # from the same GitHub Actions IP range — observed >50% failure rate
+      # at max-parallel 15. Lower concurrency is the real fix; synth()'s own
+      # retry/backoff (below) is a second line of defense, not the primary one.
+      max-parallel: 6
       matrix:
         chapter: ${{ fromJson(needs.detect.outputs.ids) }}
     name: build (${{ matrix.chapter }})
