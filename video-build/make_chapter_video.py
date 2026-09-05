@@ -217,6 +217,39 @@ def run(cmd: list[str]) -> None:
         raise subprocess.CalledProcessError(result.returncode, cmd)
 
 
+def render_caption_box(
+    w: int, h: int, font: str, pointsize: int, fill: str, gravity: str,
+    text: str, out_path: Path, extent_w: int,
+) -> None:
+    """Render one caption: box, shrinking pointsize on failure.
+
+    Our arithmetic pointsize estimate errs smaller on purpose, but it's a
+    model (average glyph width/line height), not exact — a run of long,
+    unbreakable Latin words (drug names, trial acronyms) can still wrap
+    into more lines than estimated and make ImageMagick refuse ("width or
+    height exceeds limit"). Rather than trust the estimate completely,
+    treat it as a starting point and shrink further on actual failure —
+    this is what guarantees we never crash a 40+ minute chapter render
+    over one dense slide.
+    """
+    size = pointsize
+    while True:
+        cmd = [
+            MAGICK_BIN, "-size", f"{w}x{h}", "-background", WHITE,
+            "-font", font, "-pointsize", str(size), "-fill", fill, "-gravity", gravity,
+            f"caption:{im_escape(text)}",
+            "-gravity", gravity, "-background", WHITE, "-extent", f"{extent_w}x{h}",
+            out_path.as_posix(),
+        ]
+        result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        if result.returncode == 0:
+            return
+        if size <= 10:
+            print(result.stderr.decode("utf-8", errors="replace"), file=sys.stderr)
+            raise subprocess.CalledProcessError(result.returncode, cmd)
+        size = max(10, int(size * 0.8))
+
+
 def breadcrumb(chapter_title: str, section: str) -> str:
     parts = ["ASH-SAP 血液科口試問答筆記", chapter_title]
     if section:
@@ -355,22 +388,16 @@ def render_slide(
         divider_png.as_posix(),
     ])
     inner_w = WIDTH - 160
-    run([
-        MAGICK_BIN, "-size", f"{inner_w}x{question_h}", "-background", WHITE,
-        "-font", font_bold, "-pointsize", str(question_pointsize), "-fill", BLACK, "-gravity", "Center",
-        f"caption:{im_escape(question)}",
-        "-gravity", "center", "-background", WHITE, "-extent", f"{WIDTH}x{question_h}",
-        question_png.as_posix(),
-    ])
+    render_caption_box(
+        inner_w, question_h, font_bold, question_pointsize, BLACK, "Center",
+        question, question_png, WIDTH,
+    )
     if answer:
         inner_w2 = WIDTH - 200
-        run([
-            MAGICK_BIN, "-size", f"{inner_w2}x{answer_h}", "-background", WHITE,
-            "-font", font_regular, "-pointsize", str(answer_pointsize), "-fill", GRAY, "-gravity", "North",
-            f"caption:{im_escape(answer)}",
-            "-gravity", "north", "-background", WHITE, "-extent", f"{WIDTH}x{answer_h}",
-            answer_png.as_posix(),
-        ])
+        render_caption_box(
+            inner_w2, answer_h, font_regular, answer_pointsize, GRAY, "North",
+            answer, answer_png, WIDTH,
+        )
     else:
         run([MAGICK_BIN, "-size", f"{WIDTH}x{answer_h}", f"xc:{WHITE}", answer_png.as_posix()])
     run([
