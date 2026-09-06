@@ -51,7 +51,11 @@ jobs:
       - name: Build Anki deck
         run: |
           cd anki-build
-          uv run build_anki.py
+          # ASCII filename: GitHub silently renames release assets with
+          # non-ASCII (e.g. CJK) filenames to "default.<ext>", which is a
+          # confusing download name. The deck name inside Anki (血專口試)
+          # is unaffected by this — only the downloadable .apkg filename.
+          uv run build_anki.py --output ../ash-sap-oral-exam-anki.apkg
 
       - name: Compute version tag
         id: version
@@ -65,6 +69,6 @@ jobs:
           gh release create "${{ steps.version.outputs.tag }}" \
             ash-sap-oral-exam-notes.epub \
             ash-sap-oral-exam-notes.pdf \
-            "血專口試.apkg" \
+            ash-sap-oral-exam-anki.apkg \
             --title "ASH-SAP 口試問答筆記 ${{ steps.version.outputs.tag }}" \
             --notes "由 converted/*.md 自動建置。內容改寫自 ASH-SAP 9e，僅供個人讀書與考試準備使用。含 EPUB、PDF、Anki 卡包（血專口試::章節，uv run anki-build/build_anki.py 重新產生）。"
