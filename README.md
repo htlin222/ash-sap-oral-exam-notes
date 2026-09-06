@@ -20,9 +20,9 @@
 
 `converted/**.md` 有異動並 push 到 `main` 時，GitHub Actions 會自動：
 
-1. 重新建置 EPUB + PDF，並發布為 [GitHub Release](../../releases)。
+1. 重新建置 EPUB + PDF + Anki 卡包，並發布為 [GitHub Release](../../releases)（版本化 tag，每次建置一個新 release）。
 2. 重新建置並部署 Starlight 網站到 GitHub Pages。
-3. 重新產生有異動章節的影片，全部上傳到同一個 `videos-v*` GitHub Release（49 章平行處理，見 [`release-videos.yml`](./.github/workflows/release-videos.yml)）。
+3. 重新產生有異動章節的影片，全部上傳到同一個 [`videos-final`](../../releases/tag/videos-final) GitHub Release（49 章平行處理，見 [`release-videos.yml`](./.github/workflows/release-videos.yml)）。
 
 ## 本機建置
 
