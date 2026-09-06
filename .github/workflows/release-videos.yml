@@ -66,8 +66,10 @@ jobs:
           echo "ids=$ids_json" >> "$GITHUB_OUTPUT"
           echo "Chapters to build: $ids_json"
 
-          tag="videos-v$(date +%Y.%m.%d)-${GITHUB_SHA::7}"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # One stable release for the whole project ("a release as final") —
+          # every run (full or partial rebuild) uploads into this same tag
+          # with --clobber, rather than each run creating its own dated tag.
+          echo "tag=videos-final" >> "$GITHUB_OUTPUT"
 
       - name: Create shared release
         if: steps.chapters.outputs.ids != '[]'
@@ -76,11 +78,11 @@ jobs:
         run: |
           tag="${{ steps.chapters.outputs.tag }}"
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists (same-day rerun) — reusing it."
+            echo "Release $tag already exists — reusing it (chapters below will --clobber their own asset only)."
           else
             gh release create "$tag" \
-              --title "ASH-SAP 章節影片 $tag" \
-              --notes "由 converted/*.md 自動建置的章節口試問答影片（16:9，zh-TW-YunJheNeural 語音旁白）。各章節影片會陸續以 matrix job 上傳到這個 release。"
+              --title "ASH-SAP 章節影片（全 49 章）" \
+              --notes "全書 49 章的口試問答影片，16:9，靜態黑白極簡投影片 + zh-TW-YunJheNeural 語音旁白逐題朗讀，每章一支。由 converted/*.md 自動建置，內容改寫自 ASH-SAP 9th Edition，僅供個人讀書與考試準備使用。"
           fi
 
   build:
